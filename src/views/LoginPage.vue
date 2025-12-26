@@ -73,7 +73,6 @@ h2 {
 /* ===== INPUTS ===== */
 input {
   width: 100%;
-  padding: 12px;
   margin-bottom: 14px;
   border-radius: 10px;
   border: 1px solid #ddd;
