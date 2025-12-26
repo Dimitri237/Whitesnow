@@ -109,7 +109,7 @@ export default {
 }
 
 input {
-  padding: 10px;
+  /* padding: 10px; */
   border-radius: 8px;
   border: 1px solid #ccc;
   width: 100%;
