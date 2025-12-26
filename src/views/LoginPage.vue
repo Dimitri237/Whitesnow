@@ -74,6 +74,7 @@ h2 {
 input {
   width: 100%;
   margin-bottom: 14px;
+  padding: 10px 0;
   border-radius: 10px;
   border: 1px solid #ddd;
   font-size: 0.95rem;
