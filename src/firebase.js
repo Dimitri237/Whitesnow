@@ -3,13 +3,13 @@ import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore"
 import { getAuth } from "firebase/auth"
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDaoExO9o9ntisG-8rspxdPhrAJVI3VV7g",
-  authDomain: "whitesnow-273d1.firebaseapp.com",
-  projectId: "whitesnow-273d1",
-  storageBucket: "whitesnow-273d1.firebasestorage.app",
-  messagingSenderId: "409196850510",
-  appId: "1:409196850510:web:5b0d4594cbade83edcc21f",
-  measurementId: "G-BPB1198PS8"
+  apiKey: "AIzaSyB7WmPgL90yWOuSu4CUVA_EttNOr0SNkbA",
+  authDomain: "whitesnow2-b27b8.firebaseapp.com",
+  projectId: "whitesnow2-b27b8",
+  storageBucket: "whitesnow2-b27b8.firebasestorage.app",
+  messagingSenderId: "704968201517",
+  appId: "1:704968201517:web:66dc397bf7d63b02dcefa4",
+  measurementId: "G-Y7ZKHE0GWS"
 };
 const app = initializeApp(firebaseConfig)
 export const db = getFirestore(app)
