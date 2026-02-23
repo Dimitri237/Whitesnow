@@ -18,7 +18,7 @@
       </select>
 
       <input v-model.number="qty" type="number" min="1" placeholder="Qté" />
-      <button class="btn" @click="addToCart">Ajouter</button>
+      <button class="btn" @click="addToCart" :disabled="!productId || qty < 0">Ajouter</button>
     </div>
 
     <!-- 🛒 PANIER -->
@@ -167,83 +167,97 @@ export default {
     },
 
     addToCart() {
-      const p = this.products.find(x => x.id === this.productId)
-      if (!p) return
+  const p = this.products.find(x => x.id === this.productId)
+  if (!p) return
 
-      this.cart.push({
-        productId: p.id,
-        name: p.name,
-        price: p.price,
-        qty: this.qty
-      })
+  const existing = this.cart.find(i => i.productId === p.id)
+  if (existing) {
+    existing.qty += this.qty
+  } else {
+    this.cart.push({
+      productId: p.id,
+      name: p.name,
+      price: p.price,
+      qty: this.qty
+    })
+  }
 
-      this.productId = ""
-      this.qty = 1
-    },
+  this.productId = ""
+  this.qty = 1
+},
 
     removeFromCart(id) {
       this.cart = this.cart.filter(i => i.productId !== id)
     },
 
-    async saveSale() {
-      this.loading = true;
-      if (!this.cart.length) return
+   async saveSale() {
+  if (!this.cart.length) return
+  this.loading = true;
 
-      for (const i of this.cart) {
-        const p = this.products.find(x => x.id === i.productId)
-        const current = p.stocks?.[this.depotId] || 0
-
-        if (current < i.qty) {
-          alert(`Stock insuffisant pour ${i.name}`)
-          this.loading = false;
-          return
-        }
-
-        await updateDoc(doc(db, "products", p.id), {
-          [`stocks.${this.depotId}`]: current - i.qty
-        })
-        this.loading = false;
-      }
-
-      const sale = {
-        depotId: this.depotId,
-        items: this.cart,
-        clientName: this.clientName || "Client comptant",
-        remark: this.remark || "",
-        total: this.cartTotal,
-        date: new Date()
-      }
+  // Vérification des stocks
+  for (const i of this.cart) {
+    const p = this.products.find(x => x.id === i.productId)
+    const current = p.stocks?.[this.depotId] || 0
+    if (current < i.qty) {
+      alert(`Stock insuffisant pour ${i.name}`)
       this.loading = false;
-      const ref = await addDoc(collection(db, "sales"), sale)
+      return
+    }
+  }
 
-      await printInvoiceDirect(
-        { id: ref.id, total: sale.total },
-        sale.items,
-        sale.clientName,
-        { name: "Dépôt principal" }
-      )
+  // Mise à jour des stocks
+  for (const i of this.cart) {
+    const p = this.products.find(x => x.id === i.productId)
+    const current = p.stocks?.[this.depotId] || 0
+    await updateDoc(doc(db, "products", p.id), {
+      [`stocks.${this.depotId}`]: current - i.qty
+    })
+  }
 
-      this.cart = []
-      this.clientName = ""
-      this.remark = ""
-      this.loadSales()
-    },
+  // Création de la vente
+  const sale = {
+    depotId: this.depotId,
+    items: this.cart,
+    clientName: this.clientName || "Client comptant",
+    remark: this.remark || "",
+    total: this.cartTotal,
+    date: new Date()
+  }
+
+  const ref = await addDoc(collection(db, "sales"), sale)
+
+  await printInvoiceDirect(
+    { id: ref.id, total: sale.total },
+    sale.items,
+    sale.clientName,
+    { name: "Dépôt principal" }
+  )
+
+  this.cart = []
+  this.clientName = ""
+  this.remark = ""
+  this.loadSales()
+  this.loading = false;
+},
 
     async deleteSale(sale) {
-      if (!confirm("Supprimer cette vente ?")) return
+  if (!confirm("Supprimer cette vente ?")) return
 
-      for (const i of sale.items) {
-        const p = this.products.find(x => x.id === i.productId)
-        const current = p.stocks?.[sale.depotId] || 0
+  for (const i of sale.items) {
+    const p = this.products.find(x => x.id === i.productId)
+    const current = p.stocks?.[sale.depotId] || 0
+    await updateDoc(doc(db, "products", p.id), {
+      [`stocks.${sale.depotId}`]: current + i.qty
+    })
+  }
 
-        await updateDoc(doc(db, "products", p.id), {
-          [`stocks.${sale.depotId}`]: current + i.qty
-        })
-      }
+  await deleteDoc(doc(db, "sales", sale.id))
+  await this.loadSales()
 
-      await deleteDoc(doc(db, "sales", sale.id))
-      this.loadSales()
-    },
+  if (this.currentPage > this.totalPages) {
+    this.currentPage = this.totalPages || 1
+  }
+},
 
     openModal(sale) {
       this.modalSale = sale
@@ -263,10 +277,12 @@ export default {
     },
 
     formatDate(date) {
-      return new Date(
-        date.seconds ? date.seconds * 1000 : date
-      ).toLocaleDateString("fr-FR")
-    }
+  if (!date) return ""
+  const d = date.seconds ? new Date(date.seconds * 1000) : new Date(date)
+  return d.toLocaleDateString("fr-FR", { 
+    day: "2-digit", month: "2-digit", year: "numeric" 
+  })
+}
   },
 
   mounted() {

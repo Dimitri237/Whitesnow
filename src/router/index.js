@@ -6,6 +6,7 @@ import Dashboard from '../views/DashboardPage.vue'
 import Products from '../views/ProductsPage.vue'
 import Entries from '../views/EntriesPage.vue'
 import Sales from '../views/SalesPage.vue'
+import Comptabilite from '../views/ComptaPge.vue'
 import loadingPage from '../views/LoadingPage.vue'
 import Clients from '../views/ClientsPage.vue'
 import Suppliers from '../views/SuppliersPage.vue'
@@ -15,6 +16,7 @@ const routes = [
   { path: '/', component: Login },
   { path: '/dashboard', component: Dashboard, meta:{auth:true} },
   { path: '/products', component: Products, meta:{auth:true} },
+  { path: '/compt', component: Comptabilite, meta:{auth:true} },
   { path: '/entries', component: Entries, meta:{auth:true} },
   { path: '/sales', component: Sales, meta:{auth:true} },
   { path: '/clients', component: Clients, meta:{auth:true} },

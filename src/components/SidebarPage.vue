@@ -11,7 +11,8 @@
     <h3><router-link @click="open = false" to="/dashboard">📊 Dashboard</router-link></h3>
     <h3><router-link @click="open = false" to="/products">🛒 Produits</router-link></h3>
     <h3><router-link @click="open = false" to="/entries">📥 Entrées</router-link></h3>
-    <h3><router-link @click="open = false" to="/sales">📤 Ventes</router-link></h3>
+    <h3><router-link @click="open = false" to="/sales">📆 Ventes</router-link></h3>
+     <h3><router-link @click="open = false" to="/compt">💰 Comptabilité</router-link></h3>
   </nav>
 </template>
 <script>
