@@ -1,19 +1,85 @@
 <template>
   <div class="page">
-    <h1 class="title">📊 Dashboard</h1>
 
+    <div class="header">
+      <h1>📊 Tableau de bord</h1>
+      <p class="subtitle">Vue globale de votre activité</p>
+    </div>
+
+    <!-- KPI -->
     <div class="cards">
-      <div class="card highlight">
-        💰 Total ventes : {{ totalSales.toLocaleString("fr-FR") }} FCFA
+
+      <div class="card kpi primary">
+        <div class="kpi-title">💰 Chiffre d'affaires total</div>
+        <div class="kpi-value">
+          {{ formatMoney(totalSales) }}
+        </div>
+      </div>
+
+      <div class="card kpi blue">
+        <div class="kpi-title">📅 Mois actuel</div>
+        <div class="kpi-value">
+          {{ formatMoney(currentMonthSales) }}
+        </div>
+      </div>
+
+      <div class="card kpi gray">
+        <div class="kpi-title">📊 Mois précédent</div>
+        <div class="kpi-value">
+          {{ formatMoney(previousMonthSales) }}
+        </div>
+      </div>
+
+      <div class="card kpi growth" :class="{ positive: growthRate >= 0, negative: growthRate < 0 }">
+        <div class="kpi-title">📉 Croissance</div>
+        <div class="kpi-value">
+          {{ growthRate.toFixed(1) }} %
+        </div>
+      </div>
+
+      <div class="card kpi green">
+        <div class="kpi-title">📦 Produits</div>
+        <div class="kpi-value">
+          {{ products.length }}
+        </div>
+      </div>
+
+      <div class="card kpi orange">
+        <div class="kpi-title">📥 Quantité entrée stock</div>
+        <div class="kpi-value">
+          {{ totalEntries }}
+        </div>
+      </div>
+
+      <div class="card kpi purple">
+        <div class="kpi-title">🧾 Nombre de ventes</div>
+        <div class="kpi-value">
+          {{ sales.length }}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ALERT STOCK -->
+    <div v-if="lowStockProducts.length" class="card alert-card">
+      <h3>🔔 Produits en stock faible</h3>
+
+      <div v-for="product in lowStockProducts" :key="product.id" class="alert-row">
+        {{ product.name }} —
+        <strong>{{ product.stock }} restant(s)</strong>
       </div>
     </div>
 
+    <!-- CHART -->
     <div class="card chart-card">
-      <h3>Ventes</h3>
+      <div class="chart-header">
+        <h3>📈 Évolution mensuelle des ventes</h3>
+      </div>
       <div class="chart-wrapper">
         <canvas id="salesChart"></canvas>
       </div>
     </div>
+
   </div>
 </template>
 
@@ -29,24 +95,46 @@ export default {
       totalSales: 0,
       totalEntries: 0,
       products: [],
-      entries: []
+      entries: [],
+      sales: [],
+      currentMonthSales: 0,
+      previousMonthSales: 0,
+      growthRate: 0,
+      lowStockProducts: []
     }
   },
-  async mounted() {
-    // Charger les ventes
-    const salesSnap = await getDocs(collection(db, "sales"))
-    const sales = salesSnap.docs.map(s => ({ id: s.id, ...s.data() }))
-    this.totalSales = sales.reduce((acc, s) => acc + s.total || 0, 0)
 
-    // Charger les produits
+  methods: {
+    formatMoney(amount) {
+      return new Intl.NumberFormat("fr-FR").format(amount) + " FCFA"
+    }
+  },
+
+  async mounted() {
+
+    // SALES
+    const salesSnap = await getDocs(collection(db, "sales"))
+    this.sales = salesSnap.docs.map(s => ({ id: s.id, ...s.data() }))
+
+    this.totalSales = this.sales.reduce(
+      (acc, s) => acc + (s.total || 0),
+      0
+    )
+
+    // PRODUITS
     const prodSnap = await getDocs(collection(db, "products"))
     this.products = prodSnap.docs.map(p => ({ id: p.id, ...p.data() }))
 
-    // Charger les entrées
+    // ALERTES STOCK
+    const LOW_STOCK_THRESHOLD = 5
+    this.lowStockProducts = this.products.filter(
+      p => (p.stock || 0) <= LOW_STOCK_THRESHOLD
+    )
+
+    // ENTRIES
     const entriesSnap = await getDocs(collection(db, "entries"))
     this.entries = entriesSnap.docs.map(e => ({ id: e.id, ...e.data() }))
 
-    // Total des entrées (quantité totale ajoutée)
     this.totalEntries = this.entries.reduce((acc, entry) => {
       const sum = entry.items
         ? entry.items.reduce((a, i) => a + (i.qty || 0), 0)
@@ -54,15 +142,77 @@ export default {
       return acc + sum
     }, 0)
 
-    // Graphique ventes
+    // 📊 Comparaison mensuelle
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+
+    let currentTotal = 0
+    let previousTotal = 0
+
+    this.sales.forEach(s => {
+      if (!s.date) return
+
+      const d = new Date(
+        s.date.seconds
+          ? s.date.seconds * 1000
+          : s.date
+      )
+
+      if (d.getFullYear() === currentYear) {
+
+        if (d.getMonth() === currentMonth) {
+          currentTotal += s.total || 0
+        }
+
+        if (d.getMonth() === currentMonth - 1) {
+          previousTotal += s.total || 0
+        }
+      }
+    })
+
+    this.currentMonthSales = currentTotal
+    this.previousMonthSales = previousTotal
+
+    if (previousTotal > 0) {
+      this.growthRate =
+        ((currentTotal - previousTotal) / previousTotal) * 100
+    } else {
+      this.growthRate = currentTotal > 0 ? 100 : 0
+    }
+
+    // 📈 Graphique mensuel
+    const monthlyData = {}
+
+    this.sales.forEach(s => {
+      if (!s.date) return
+
+      const d = new Date(
+        s.date.seconds
+          ? s.date.seconds * 1000
+          : s.date
+      )
+
+      const label = d.toLocaleDateString("fr-FR", {
+        month: "short",
+        year: "numeric"
+      })
+
+      if (!monthlyData[label]) monthlyData[label] = 0
+      monthlyData[label] += s.total || 0
+    })
+
     new Chart(document.getElementById("salesChart"), {
-      type: "bar",
+      type: "line",
       data: {
-        labels: ["Ventes totales"],
+        labels: Object.keys(monthlyData),
         datasets: [{
-          label: "FCFA",
-          data: [this.totalSales],
-          backgroundColor: "rgb(214,106,5)"
+          label: "Ventes (FCFA)",
+          data: Object.values(monthlyData),
+          borderColor: "#2563eb",
+          backgroundColor: "rgba(37,99,235,0.1)",
+          fill: true,
+          tension: 0.4
         }]
       },
       options: {
@@ -72,7 +222,6 @@ export default {
           legend: { display: false }
         }
       }
-
     })
   }
 }
@@ -80,72 +229,108 @@ export default {
 
 <style scoped>
 .page {
-  max-width: 1000px;
+  max-width: 1200px;
   margin: auto;
-  padding: 16px;
+  padding: 30px;
+  background: #f1f5f9;
+  min-height: 100vh;
 }
 
-.title {
-  margin-bottom: 16px;
-  font-size: clamp(1.4rem, 4vw, 2rem);
-  text-align: center;
+.header {
+  margin-bottom: 30px;
+}
+
+.header h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.subtitle {
+  color: #64748b;
 }
 
 .cards {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
 }
 
 .card {
-  background: #fff;
-  padding: 16px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  width: 100%;
+  background: white;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+  transition: 0.25s;
 }
 
-.highlight {
-  font-size: clamp(1rem, 4vw, 1.3rem);
-  font-weight: bold;
-  text-align: center;
+.card:hover {
+  transform: translateY(-4px);
 }
 
-/* Graphique */
-.chart-card {
-  margin-top: 20px;
+.kpi-title {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.kpi-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+/* COLORS */
+.primary {
+  border-left: 5px solid #2563eb;
+}
+
+.green {
+  border-left: 5px solid #16a34a;
+}
+
+.orange {
+  border-left: 5px solid #f97316;
+}
+
+.purple {
+  border-left: 5px solid #9333ea;
+}
+
+.blue {
+  border-left: 5px solid #0ea5e9;
+}
+
+.gray {
+  border-left: 5px solid #64748b;
+}
+
+.growth.positive {
+  border-left: 5px solid #16a34a;
+}
+
+.growth.negative {
+  border-left: 5px solid #dc2626;
+}
+
+/* ALERT */
+.alert-card {
+  margin-bottom: 30px;
+  background: #fff7ed;
+  border-left: 5px solid #f97316;
+}
+
+.alert-row {
+  padding: 8px 0;
+  border-bottom: 1px solid #fde68a;
+}
+
+.alert-row:last-child {
+  border-bottom: none;
 }
 
 .chart-wrapper {
   position: relative;
-  width: 100%;
-  height: 260px;
-}
-
-/* Tablette */
-@media (min-width: 768px) {
-  .cards {
-    flex-direction: row;
-  }
-
-  .card {
-    flex: 1;
-  }
-
-  .chart-wrapper {
-    height: 320px;
-  }
-}
-
-/* Desktop */
-@media (min-width: 1024px) {
-  .page {
-    padding: 24px;
-  }
-
-  .chart-wrapper {
-    height: 380px;
-  }
+  height: 380px;
 }
 </style>

@@ -70,26 +70,32 @@ export default {
   },
 
   computed: {
-    groupedSales() {
-      const groups = {}
+  groupedSales() {
+    const groups = {}
 
-      this.sales.forEach(sale => {
-        const date = this.formatDateKey(sale.date)
+    this.sales.forEach(sale => {
+      const date = this.formatDateKey(sale.date)
 
-        if (!groups[date]) {
-          groups[date] = {
-            sales: [],
-            total: 0
-          }
+      if (!groups[date]) {
+        groups[date] = {
+          sales: [],
+          total: 0
         }
+      }
 
-        groups[date].sales.push(sale)
-        groups[date].total += sale.total
-      })
+      groups[date].sales.push(sale)
+      groups[date].total += sale.total
+    })
 
-      return groups
-    }
-  },
+    // 🔥 TRI DU PLUS RECENT AU PLUS ANCIEN
+    return Object.keys(groups)
+      .sort((a, b) => new Date(b) - new Date(a))
+      .reduce((acc, key) => {
+        acc[key] = groups[key]
+        return acc
+      }, {})
+  }
+},
 
   methods: {
     async loadSales() {
@@ -122,38 +128,42 @@ formatMoney(amount) {
 
     downloadPDF(date, group) {
 
-      const doc = new jsPDF()
+  const doc = new jsPDF()
 
-      doc.setFontSize(16)
-      doc.text("Journal des sorties", 14, 20)
+  doc.setFontSize(18)
+  doc.text("JOURNAL DES SORTIES", 105, 20, { align: "center" })
 
-      doc.setFontSize(12)
-      doc.text(`Date : ${this.formatDisplayDate(date)}`, 14, 30)
+  doc.setFontSize(11)
+  doc.text(`Date : ${this.formatDisplayDate(date)}`, 14, 35)
 
-      const rows = []
+  const rows = group.sales.map(sale => ([
+    sale.clientName || "Non renseigné",
+    sale.items.length,
+    this.formatMoney(sale.total)
+  ]))
 
-      group.sales.forEach(sale => {
-        rows.push([
-          sale.clientName,
-          sale.items.length,
-          sale.total + " FCFA"
-        ])
-      })
-
-      autoTable(doc, {
-        startY: 40,
-        head: [["Client", "Nb Produits", "Total"]],
-        body: rows
-      })
-
-      doc.text(
-        `Total du jour : ${group.total} FCFA`,
-        14,
-        doc.lastAutoTable.finalY + 10
-      )
-
-      doc.save(`journal-${date}.pdf`)
+  autoTable(doc, {
+    startY: 45,
+    head: [["Client", "Produits", "Montant"]],
+    body: rows,
+    theme: "grid",
+    styles: {
+      fontSize: 10
+    },
+    headStyles: {
+      fillColor: [33, 150, 243]
     }
+  })
+
+  doc.setFontSize(12)
+  doc.text(
+    `TOTAL DU JOUR : ${this.formatMoney(group.total)}`,
+    14,
+    doc.lastAutoTable.finalY + 15
+  )
+
+  doc.save(`journal-${date}.pdf`)
+}
   },
 
   mounted() {
@@ -161,46 +171,50 @@ formatMoney(amount) {
   }
 }
 </script>
+
 <style scoped>
 
 /* ===== PAGE ===== */
 .page {
   max-width: 1100px;
   margin: auto;
-  padding: 30px 20px;
-  background: #f8fafc;
+  padding: 35px 25px;
+  background: #f1f5f9;
   min-height: 100vh;
 }
 
 /* ===== HEADER ===== */
 .header {
-  margin-bottom: 30px;
+  margin-bottom: 35px;
 }
 
 .header h1 {
-  font-size: 1.8rem;
-  font-weight: 700;
-  margin-bottom: 5px;
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 6px;
+  color: #0f172a;
 }
 
 .subtitle {
   color: #64748b;
   font-size: 0.95rem;
+  letter-spacing: 0.3px;
 }
 
 /* ===== DAY CARD ===== */
 .day-card {
   background: white;
-  padding: 20px;
-  margin-bottom: 20px;
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  transition: 0.2s ease;
+  padding: 22px;
+  margin-bottom: 25px;
+  border-radius: 18px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  border: 1px solid #e2e8f0;
+  transition: all 0.25s ease;
 }
 
 .day-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 }
 
 /* ===== TOP SECTION ===== */
@@ -208,77 +222,102 @@ formatMoney(amount) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 18px;
 }
 
+.day-top h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+/* ===== BADGE ===== */
 .badge {
-  background: #e0f2fe;
-  color: #0369a1;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  margin-left: 10px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  padding: 5px 12px;
+  border-radius: 25px;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 /* ===== RIGHT ===== */
 .right {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 18px;
 }
 
+/* ===== DAY TOTAL ===== */
 .day-total {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #16a34a;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #15803d;
+  background: #dcfce7;
+  padding: 6px 14px;
+  border-radius: 10px;
 }
 
 /* ===== PDF BUTTON ===== */
 .pdf-btn {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: linear-gradient(135deg, #2563eb, #1e40af);
   color: white;
   border: none;
-  padding: 8px 14px;
-  border-radius: 10px;
+  padding: 9px 16px;
+  border-radius: 12px;
   cursor: pointer;
   font-size: 0.85rem;
-  transition: 0.2s;
+  font-weight: 600;
+  transition: all 0.2s ease;
 }
 
 .pdf-btn:hover {
-  transform: scale(1.05);
+  transform: scale(1.06);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
 }
 
 /* ===== TABLE ===== */
 .table {
   border-top: 1px solid #e2e8f0;
-  padding-top: 10px;
+  padding-top: 12px;
 }
 
+/* HEADER TABLE */
 .table-header,
 .table-row {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
-  padding: 10px 0;
+  padding: 12px 0;
+  align-items: center;
 }
 
 .table-header {
-  font-weight: 600;
-  font-size: 0.85rem;
+  font-weight: 700;
+  font-size: 0.8rem;
   color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
+/* ROWS */
 .table-row {
   font-size: 0.95rem;
   border-bottom: 1px solid #f1f5f9;
+  transition: background 0.2s ease;
+}
+
+.table-row:hover {
+  background: #f8fafc;
 }
 
 .table-row:last-child {
   border-bottom: none;
 }
 
+/* AMOUNT */
 .amount {
-  font-weight: 600;
+  font-weight: 700;
+  color: #166534;
 }
 
 /* ===== RESPONSIVE ===== */
@@ -298,7 +337,12 @@ formatMoney(amount) {
   .day-top {
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: 12px;
+  }
+
+  .right {
+    width: 100%;
+    justify-content: space-between;
   }
 
 }

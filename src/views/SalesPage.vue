@@ -1,106 +1,153 @@
 <template>
   <div class="page">
-    <h2 class="title">📤 Sorties de stock</h2>
 
-    <!-- 🧾 INFOS VENTE -->
+    <!-- HEADER -->
+    <div class="header">
+      <h2>📤 Sorties de stock</h2>
+      <div class="summary">
+        <div class="summary-card">
+          <span>Aujourd'hui</span>
+          <strong>{{ todaySalesCount }} ventes</strong>
+        </div>
+        <div class="summary-card green">
+          <span>Total aujourd'hui</span>
+          <strong>{{ formatMoney(todaySalesTotal) }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- INFOS CLIENT -->
     <div class="card form">
       <input v-model="clientName" placeholder="Nom du client (optionnel)" />
       <textarea v-model="remark" placeholder="Remarque / Observation" rows="2" />
     </div>
 
-    <!-- ➕ AJOUT PRODUIT -->
+    <!-- AJOUT PRODUIT -->
     <div class="card form">
       <select v-model="productId">
         <option disabled value="">-- Produit --</option>
         <option v-for="p in products" :key="p.id" :value="p.id">
-          {{ p.name }} ({{ p.price }} FCFA)
+          {{ p.name }} ({{ formatMoney(p.price) }})
         </option>
       </select>
 
       <input v-model.number="qty" type="number" min="1" placeholder="Qté" />
-      <button class="btn" @click="addToCart" :disabled="!productId || qty < 0">Ajouter</button>
+
+      <button class="btn primary"
+              @click="addToCart"
+              :disabled="!productId || qty <= 0">
+        ➕ Ajouter
+      </button>
     </div>
 
-    <!-- 🛒 PANIER -->
-    <!-- 🛒 PANIER -->
-    <div v-if="cart.length" class="card">
-      <h3>Produits de la sortie</h3>
+    <!-- PANIER -->
+    <div v-if="cart.length" class="card cart-card">
+      <h3>🛒 Panier</h3>
 
-      <div class="cart-item" v-for="i in cart" :key="i.productId">
-        <div>
+      <div class="cart-item"
+           v-for="i in cart"
+           :key="i.productId">
+
+        <div class="cart-left">
           <strong>{{ i.name }}</strong>
           <div class="meta">
-            {{ i.qty }} × {{ i.price }} FCFA
+            {{ i.qty }} × {{ formatMoney(i.price) }}
           </div>
         </div>
 
-        <button class="danger" @click="removeFromCart(i.productId)">❌</button>
+        <div class="cart-right">
+          <div class="line-total">
+            {{ formatMoney(i.qty * i.price) }}
+          </div>
+          <button class="danger"
+                  @click="removeFromCart(i.productId)">
+            ✕
+          </button>
+        </div>
       </div>
 
-      <div class="total">
-        Total : <strong>{{ cartTotal }} FCFA</strong>
+      <div class="total-box">
+        <span>Total</span>
+        <strong>{{ formatMoney(cartTotal) }}</strong>
       </div>
 
-      <button class="btn primary full" @click="saveSale" :disabled="loading">
-        <span class="loading-indicator" v-if="loading"></span>
+      <button class="btn primary full"
+              @click="saveSale"
+              :disabled="loading">
+        <span v-if="loading" class="loading-indicator"></span>
         <span v-else>Valider & Imprimer</span>
       </button>
     </div>
 
-
-    <!-- 📋 HISTORIQUE -->
+    <!-- HISTORIQUE -->
     <div class="card">
-      <h3>Historique des sorties</h3>
+      <h3>📋 Historique</h3>
 
-      <transition-group name="list" tag="div">
-        <div v-for="s in paginatedSales" :key="s.id" class="entry" :class="{ selected: openedSale === s.id }"
-          @click="openModal(s)">
-          <div>
-            <strong>{{ formatDate(s.date) }}</strong>
-            <div class="meta">
-              👤 {{ s.clientName || "Client comptant" }}
-              <span class="badge">{{ s.items.length }} produits</span>
-            </div>
+      <div v-for="s in paginatedSales"
+           :key="s.id"
+           class="entry"
+           :class="{ selected: openedSale === s.id }"
+           @click="openModal(s)">
+
+        <div>
+          <strong>{{ formatDate(s.date) }}</strong>
+          <div class="meta">
+            👤 {{ s.clientName || "Client comptant" }}
+            <span class="badge">
+              {{ formatMoney(s.total) }}
+            </span>
           </div>
-
-          <button class="danger" @click.stop="deleteSale(s)">
-            Supprimer
-          </button>
         </div>
-      </transition-group>
 
-      <!-- Pagination -->
-      <div class="pagination" v-if="sales.length > pageSize">
-        <button @click="prevPage" :disabled="currentPage === 1">⬅️</button>
+        <button class="danger"
+                @click.stop="deleteSale(s)">
+          Supprimer
+        </button>
+      </div>
+
+      <div class="pagination"
+           v-if="sales.length > pageSize">
+        <button @click="prevPage"
+                :disabled="currentPage === 1">⬅️</button>
+
         <span>Page {{ currentPage }} / {{ totalPages }}</span>
-        <button @click="nextPage" :disabled="currentPage === totalPages">➡️</button>
+
+        <button @click="nextPage"
+                :disabled="currentPage === totalPages">➡️</button>
       </div>
     </div>
 
-    <!-- 🔽 MODAL -->
-    <div v-if="modalSale" class="modal-overlay" @click.self="closeModal">
+    <!-- MODAL -->
+    <div v-if="modalSale"
+         class="modal-overlay"
+         @click.self="closeModal">
       <div class="modal">
         <h3>Détails vente</h3>
 
         <p><strong>Date :</strong> {{ formatDate(modalSale.date) }}</p>
         <p><strong>Client :</strong> {{ modalSale.clientName }}</p>
 
-        <p v-if="modalSale.remark">
-          <strong>Remarque :</strong> {{ modalSale.remark }}
-        </p>
-
         <hr />
 
-        <div v-for="i in modalSale.items" :key="i.productId">
-          • {{ i.name }} — {{ i.qty }} × {{ i.price }} FCFA
+        <div v-for="i in modalSale.items"
+             :key="i.productId">
+          • {{ i.name }} —
+          {{ i.qty }} × {{ formatMoney(i.price) }}
         </div>
 
         <hr />
-        <strong>Total : {{ modalSale.total }} FCFA</strong>
 
-        <button class="btn primary" @click="closeModal">Fermer</button>
+        <div class="modal-total">
+          Total : {{ formatMoney(modalSale.total) }}
+        </div>
+
+        <button class="btn primary"
+                @click="closeModal">
+          Fermer
+        </button>
       </div>
     </div>
+
   </div>
 </template>
 
@@ -140,6 +187,27 @@ export default {
   },
 
   computed: {
+    todaySalesCount() {
+  const today = new Date().toDateString()
+  return this.sales.filter(s => {
+    const d = s.date?.seconds
+      ? new Date(s.date.seconds * 1000)
+      : new Date(s.date)
+    return d.toDateString() === today
+  }).length
+},
+
+todaySalesTotal() {
+  const today = new Date().toDateString()
+  return this.sales
+    .filter(s => {
+      const d = s.date?.seconds
+        ? new Date(s.date.seconds * 1000)
+        : new Date(s.date)
+      return d.toDateString() === today
+    })
+    .reduce((sum, s) => sum + (s.total || 0), 0)
+},
     cartTotal() {
       return this.cart.reduce((s, i) => s + i.qty * i.price, 0)
     },
@@ -158,7 +226,9 @@ export default {
       this.products = p.docs.map(d => ({ id: d.id, ...d.data() }))
       this.loadSales()
     },
-
+formatMoney(amount) {
+  return new Intl.NumberFormat("fr-FR").format(amount) + " FCFA"
+},
     async loadSales() {
       const snap = await getDocs(collection(db, "sales"))
       this.sales = snap.docs
@@ -374,7 +444,81 @@ textarea {
   font-size: 0.9rem;
   color: #555;
 }
+.header {
+  margin-bottom: 20px;
+}
 
+.summary {
+  display: flex;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.summary-card {
+  background: white;
+  padding: 10px 16px;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-card span {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.summary-card strong {
+  font-size: 1rem;
+}
+
+.summary-card.green {
+  border-left: 4px solid #16a34a;
+}
+
+.cart-card {
+  border-left: 4px solid #3b82f6;
+}
+
+.cart-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.cart-left .meta {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.cart-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.line-total {
+  font-weight: 600;
+  color: #16a34a;
+}
+
+.total-box {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 15px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding-top: 10px;
+  border-top: 2px solid #eee;
+}
+
+.modal-total {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 10px 0;
+}
 .total {
   text-align: right;
   margin-top: 10px;

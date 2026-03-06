@@ -30,7 +30,7 @@ export default {
   display: none;
   position: fixed;
   top: 12px;
-  left: 0px;
+  left: 10px;
   z-index: 200;
   font-size: 1.6rem;
   background: #3b82f6;
@@ -52,8 +52,8 @@ export default {
 /* ===== SIDEBAR ===== */
 .sidebar {
   position: fixed;
-  top: 0;
-  left: 0;
+  top: -13px;
+  left: -18px;
   height: 100vh;
   width: 220px;
   background: #111827;

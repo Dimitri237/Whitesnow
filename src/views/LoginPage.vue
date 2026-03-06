@@ -1,7 +1,7 @@
 <template>
   <div class="login-page">
   <div class="card login-card">
-    <h2>🔐 WS Connexion</h2>
+    <h2>🔐Connexion</h2>
     <p class="subtitle">Accédez à votre espace de gestion</p>
 
     <input v-model="email" type="email" placeholder="📧 Adresse email" />
